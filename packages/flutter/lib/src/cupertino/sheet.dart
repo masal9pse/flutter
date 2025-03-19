@@ -761,61 +761,8 @@ class _CupertinoDownGestureController<T> {
     final bool isCurrent = getIsCurrent();
     final bool animateForward;
 
-    if (!isCurrent) {
-      // If the page has already been navigated away from, then the animation
-      // direction depends on whether or not it's still in the navigation stack,
-      // regardless of velocity or drag position. For example, if a route is
-      // being slowly dragged back by just a few pixels, but then a programmatic
-      // pop occurs, the route should still be animated off the screen.
-      // See https://github.com/flutter/flutter/issues/141268.
-      animateForward = getIsActive();
-    } else if (velocity.abs() >= _kMinFlingVelocity) {
-      // If the user releases the page before mid screen with sufficient velocity,
-      // or after mid screen, we should animate the page out. Otherwise, the page
-      // should be animated back in.
-      animateForward = velocity <= 0;
-    } else {
-      // If the drag is dropped with low velocity, the sheet will pop if the
-      // the drag goes a little past the halfway point on the screen. This is
-      // eyeballed on a simulator running iOS 18.0.
-      animateForward = controller.value > 0.52;
-    }
-
-    if (animateForward) {
-      controller.animateTo(
-        1.0,
-        duration: _kDroppedSheetDragAnimationDuration,
-        curve: animationCurve,
-      );
-    } else {
-      if (isCurrent) {
-        // This route is destined to pop at this point. Reuse navigator's pop.
-        final NavigatorState rootNavigator = Navigator.of(navigator.context, rootNavigator: true);
-        rootNavigator.pop();
-      }
-
-      if (controller.isAnimating) {
-        controller.animateBack(
-          0.0,
-          duration: _kDroppedSheetDragAnimationDuration,
-          curve: animationCurve,
-        );
-      }
-    }
-
-    if (controller.isAnimating) {
-      // Keep the userGestureInProgress in true state so we don't change the
-      // curve of the page transition mid-flight since CupertinoPageTransition
-      // depends on userGestureInProgress.
-      // late AnimationStatusListener animationStatusCallback;
-      void animationStatusCallback(AnimationStatus status) {
-        navigator.didStopUserGesture();
-        controller.removeStatusListener(animationStatusCallback);
-      }
-
-      controller.addStatusListener(animationStatusCallback);
-    } else {
-      navigator.didStopUserGesture();
-    }
+    // controller.animateTo(1.0, duration: _kDroppedSheetDragAnimationDuration, curve: animationCurve);
+    controller.animateTo(0.23, duration: _kDroppedSheetDragAnimationDuration, curve: animationCurve);
+    navigator.didStopUserGesture();
   }
 }
