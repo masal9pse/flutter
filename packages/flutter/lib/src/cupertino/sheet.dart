@@ -332,7 +332,7 @@ class CupertinoSheetTransition extends StatefulWidget {
   State<CupertinoSheetTransition> createState() => _CupertinoSheetTransitionState();
 }
 
-class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> {
+class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> with TickerProviderStateMixin {
   // The offset animation when this page is being covered by another sheet.
   late Animation<Offset> _secondaryPositionAnimation;
 
@@ -345,9 +345,25 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> {
   // Curve of secondary page which is becoming covered by another sheet.
   CurvedAnimation? _secondaryPositionCurve;
 
+  late Offset _offset;
+  late AnimationController _animationController;
+  late Animation<Offset> _offsetAnimation;
+
   @override
   void initState() {
     super.initState();
+    _offset = Offset.zero;
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _offsetAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0.0, -0.007),
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarBrightness: Brightness.dark,
@@ -358,17 +374,8 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> {
   }
 
   @override
-  void didUpdateWidget(covariant CupertinoSheetTransition oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.primaryRouteAnimation != widget.primaryRouteAnimation ||
-        oldWidget.secondaryRouteAnimation != widget.secondaryRouteAnimation) {
-      _disposeCurve();
-      _setupAnimation();
-    }
-  }
-
-  @override
   void dispose() {
+    _animationController.dispose();
     _disposeCurve();
     super.dispose();
   }
@@ -438,15 +445,23 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> {
   @override
   Widget build(BuildContext context) {
     return SizedBox.expand(
-      child: _coverSheetSecondaryTransition(
-        widget.secondaryRouteAnimation,
-        _coverSheetPrimaryTransition(
-          context,
-          widget.primaryRouteAnimation,
-          widget.linearTransition,
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: widget.child,
+      child: Listener(
+        onPointerDown: (PointerDownEvent event) {
+          _animationController.forward();
+        },
+        child: SlideTransition(
+          position: _offsetAnimation,
+          child: _coverSheetSecondaryTransition(
+            widget.secondaryRouteAnimation,
+            _coverSheetPrimaryTransition(
+              context,
+              widget.primaryRouteAnimation,
+              widget.linearTransition,
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: widget.child,
+              ),
+            ),
           ),
         ),
       ),
@@ -508,6 +523,7 @@ class CupertinoSheetRoute<T> extends PageRoute<T> with _CupertinoSheetRouteTrans
         child: CupertinoUserInterfaceLevel(
           data: CupertinoUserInterfaceLevelData.elevated,
           child: _CupertinoSheetScope(child: builder(context)),
+          // child: _CupertinoSheetScope(child: Text('Hello')),
         ),
       ),
     );
