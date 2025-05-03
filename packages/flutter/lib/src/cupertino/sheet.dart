@@ -678,7 +678,8 @@ class _AnimationSampleState<T> extends State<AnimationSample<T>>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(microseconds: 1),
+      reverseDuration: const Duration(milliseconds: 150),
     );
     _setupAnimation();
     _setupGestureRecognizer();
@@ -859,8 +860,17 @@ class _CupertinoDownGestureController<T> {
   /// The drag gesture has changed by [delta]. The total range of the drag
   /// should be 0.0 to 1.0.
   void dragUpdate(double delta) {
-    controller.value -= delta;
-    upperPositionAnimationController.forward();
+    if (controller.value == 1.0 && delta < 0) {
+      // deltaの最大値は約-0.03なので、それを1.0にマッピング
+      // 負の値を正の値に変換し、0.0から1.0の範囲に正規化
+      // final double normalizedDelta = (delta.abs() / 0.03).clamp(0.0, 1.0);
+      // print('delta: $delta, normalizedDelta: $normalizedDelta');
+      // upperPositionAnimationController.value = normalizedDelta;
+      upperPositionAnimationController.value -= delta - 0.3;
+    } else {
+      upperPositionAnimationController.reverse();
+      controller.value -= delta;
+    }
   }
 
   /// The drag gesture has ended with a vertical motion of [velocity] as a
@@ -873,6 +883,8 @@ class _CupertinoDownGestureController<T> {
     const Curve animationCurve = Curves.easeOut;
     final bool isCurrent = getIsCurrent();
     final bool animateForward;
+
+    upperPositionAnimationController.reverse();
 
     if (!isCurrent) {
       // If the page has already been navigated away from, then the animation
