@@ -197,7 +197,13 @@ class CupertinoSheetTransition extends StatefulWidget {
     required this.secondaryRouteAnimation,
     required this.child,
     required this.linearTransition,
+    // required this.animationController,
   });
+
+  /// `animationController` is a controller for the animation.
+  ///
+  /// This is used to control the animation of the sheet.
+  // final AnimationController animationController;
 
   /// `primaryRouteAnimation` is a linear route animation from 0.0 to 1.0 when
   /// this screen is being pushed.
@@ -345,14 +351,12 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> wit
   // Curve of secondary page which is becoming covered by another sheet.
   CurvedAnimation? _secondaryPositionCurve;
 
-  late Offset _offset;
   late AnimationController _animationController;
   late Animation<Offset> _offsetAnimation;
 
   @override
   void initState() {
     super.initState();
-    _offset = Offset.zero;
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -445,22 +449,17 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> wit
   @override
   Widget build(BuildContext context) {
     return SizedBox.expand(
-      child: Listener(
-        onPointerDown: (PointerDownEvent event) {
-          _animationController.forward();
-        },
-        child: SlideTransition(
-          position: _offsetAnimation,
-          child: _coverSheetSecondaryTransition(
-            widget.secondaryRouteAnimation,
-            _coverSheetPrimaryTransition(
-              context,
-              widget.primaryRouteAnimation,
-              widget.linearTransition,
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                child: widget.child,
-              ),
+      child: SlideTransition(
+        position: _offsetAnimation,
+        child: _coverSheetSecondaryTransition(
+          widget.secondaryRouteAnimation,
+          _coverSheetPrimaryTransition(
+            context,
+            widget.primaryRouteAnimation,
+            widget.linearTransition,
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: widget.child,
             ),
           ),
         ),
@@ -605,15 +604,6 @@ mixin _CupertinoSheetRouteTransitionMixin<T> on PageRoute<T> {
     return buildContent(context);
   }
 
-  static _CupertinoDownGestureController<T> _startPopGesture<T>(ModalRoute<T> route) {
-    return _CupertinoDownGestureController<T>(
-      navigator: route.navigator!,
-      getIsCurrent: () => route.isCurrent,
-      getIsActive: () => route.isActive,
-      controller: route.controller!, // protected access
-    );
-  }
-
   /// Returns a [CupertinoSheetTransition].
   static Widget buildPageTransitions<T>(
     ModalRoute<T> route,
@@ -624,15 +614,13 @@ mixin _CupertinoSheetRouteTransitionMixin<T> on PageRoute<T> {
     bool enableDrag,
   ) {
     final bool linearTransition = route.popGestureInProgress;
-    return CupertinoSheetTransition(
+    return AnimationSample<T>(
       primaryRouteAnimation: animation,
       secondaryRouteAnimation: secondaryAnimation,
+      child: child,
       linearTransition: linearTransition,
-      child: _CupertinoDownGestureDetector<T>(
-        enabledCallback: () => enableDrag,
-        onStartPopGesture: () => _startPopGesture<T>(route),
-        child: child,
-      ),
+      enableDrag: enableDrag,
+      route: route,
     );
   }
 
@@ -652,67 +640,78 @@ mixin _CupertinoSheetRouteTransitionMixin<T> on PageRoute<T> {
   }
 }
 
-class _CupertinoDownGestureDetector<T> extends StatefulWidget {
-  const _CupertinoDownGestureDetector({
+class AnimationSample<T> extends StatefulWidget {
+  const AnimationSample({
     super.key,
-    required this.enabledCallback,
-    required this.onStartPopGesture,
+    required this.primaryRouteAnimation,
+    required this.secondaryRouteAnimation,
     required this.child,
+    required this.linearTransition,
+    required this.enableDrag,
+    required this.route,
   });
 
+  final Animation<double> primaryRouteAnimation;
+  final Animation<double> secondaryRouteAnimation;
   final Widget child;
-
-  final ValueGetter<bool> enabledCallback;
-
-  final ValueGetter<_CupertinoDownGestureController<T>> onStartPopGesture;
+  final bool linearTransition;
+  final bool enableDrag;
+  final ModalRoute<T> route;
 
   @override
-  _CupertinoDownGestureDetectorState<T> createState() => _CupertinoDownGestureDetectorState<T>();
+  State<AnimationSample<T>> createState() => _AnimationSampleState<T>();
 }
 
-class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureDetector<T>> {
+class _AnimationSampleState<T> extends State<AnimationSample<T>>
+    with TickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<Offset> _secondaryPositionAnimation;
+  late Animation<double> _secondaryScaleAnimation;
+  late CurvedAnimation _primaryPositionCurve;
+  late CurvedAnimation _secondaryPositionCurve;
   _CupertinoDownGestureController<T>? _downGestureController;
-
   late VerticalDragGestureRecognizer _recognizer;
+  late Animation<Offset> _upperPositionAnimation;
 
   @override
   void initState() {
     super.initState();
-    _recognizer =
-        VerticalDragGestureRecognizer(debugOwner: this)
-          ..onStart = _handleDragStart
-          ..onUpdate = _handleDragUpdate
-          ..onEnd = _handleDragEnd
-          ..onCancel = _handleDragCancel;
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _setupAnimation();
+    _setupGestureRecognizer();
   }
 
-  @override
-  void dispose() {
-    _recognizer.dispose();
-
-    // If this is disposed during a drag, call navigator.didStopUserGesture.
-    if (_downGestureController != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_downGestureController?.navigator.mounted ?? false) {
-          _downGestureController?.navigator.didStopUserGesture();
-        }
-        _downGestureController = null;
-      });
-    }
-    super.dispose();
+  void _setupGestureRecognizer() {
+    _recognizer = VerticalDragGestureRecognizer(debugOwner: this)
+      ..onStart = _handleDragStart
+      ..onUpdate = _handleDragUpdate
+      ..onEnd = _handleDragEnd
+      ..onCancel = _handleDragCancel;
   }
 
   void _handleDragStart(DragStartDetails details) {
     assert(mounted);
     assert(_downGestureController == null);
-    _downGestureController = widget.onStartPopGesture();
+    _downGestureController = _startPopGesture();
+  }
+
+  _CupertinoDownGestureController<T> _startPopGesture() {
+    return _CupertinoDownGestureController<T>(
+      navigator: widget.route.navigator!,
+      getIsCurrent: () => widget.route.isCurrent,
+      getIsActive: () => widget.route.isActive,
+      controller: widget.route.controller!,
+      upperPositionAnimationController: _controller,
+    );
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
     assert(mounted);
     assert(_downGestureController != null);
     _downGestureController!.dragUpdate(
-      // Divide by size of the sheet.
       details.primaryDelta! / (context.size!.height - (context.size!.height * _kTopGapRatio)),
     );
   }
@@ -726,16 +725,90 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
 
   void _handleDragCancel() {
     assert(mounted);
-    // This can be called even if start is not called, paired with the "down" event
-    // that we don't consider here.
     _downGestureController?.dragEnd(0.0);
     _downGestureController = null;
   }
 
   void _handlePointerDown(PointerDownEvent event) {
-    if (widget.enabledCallback()) {
+    if (widget.enableDrag) {
       _recognizer.addPointer(event);
     }
+  }
+
+  void _setupAnimation() {
+    _primaryPositionCurve = CurvedAnimation(
+      curve: Curves.fastEaseInToSlowEaseOut,
+      reverseCurve: Curves.fastEaseInToSlowEaseOut.flipped,
+      parent: widget.primaryRouteAnimation,
+    );
+    _secondaryPositionCurve = CurvedAnimation(
+      curve: Curves.linearToEaseOut,
+      reverseCurve: Curves.easeInToLinear,
+      parent: widget.secondaryRouteAnimation,
+    );
+    _secondaryPositionAnimation = _secondaryPositionCurve.drive(_kMidUpTween);
+    _secondaryScaleAnimation = _secondaryPositionCurve.drive(_kScaleTween);
+    _upperPositionAnimation = _controller.drive(Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0.0, -0.007),
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _primaryPositionCurve.dispose();
+    _secondaryPositionCurve.dispose();
+    _recognizer.dispose();
+    if (_downGestureController != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_downGestureController?.navigator.mounted ?? false) {
+          _downGestureController?.navigator.didStopUserGesture();
+        }
+        _downGestureController = null;
+      });
+    }
+    super.dispose();
+  }
+
+  Widget _coverSheetPrimaryTransition(
+    BuildContext context,
+    Animation<double> animation,
+    bool linearTransition,
+    Widget? child,
+  ) {
+    final Animatable<Offset> offsetTween =
+        CupertinoSheetRoute.hasParentSheet(context)
+            ? _kBottomUpTweenWhenCoveringOtherSheet
+            : _kBottomUpTween;
+
+    final CurvedAnimation curvedAnimation = CurvedAnimation(
+      parent: animation,
+      curve: linearTransition ? Curves.linear : Curves.fastEaseInToSlowEaseOut,
+      reverseCurve: linearTransition ? Curves.linear : Curves.fastEaseInToSlowEaseOut.flipped,
+    );
+
+    final Animation<Offset> positionAnimation = curvedAnimation.drive(offsetTween);
+
+    curvedAnimation.dispose();
+
+    return SlideTransition(position: positionAnimation, child: child);
+  }
+
+  Widget _coverSheetSecondaryTransition(Animation<double> secondaryAnimation, Widget? child) {
+    return SlideTransition(
+      position: _secondaryPositionAnimation,
+      transformHitTests: false,
+      child: ScaleTransition(
+        scale: _secondaryScaleAnimation,
+        filterQuality: FilterQuality.medium,
+        alignment: Alignment.topCenter,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          child: child,
+        ),
+      ),
+    );
   }
 
   @override
@@ -743,7 +816,23 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
     return Listener(
       onPointerDown: _handlePointerDown,
       behavior: HitTestBehavior.translucent,
-      child: widget.child,
+      child: SizedBox.expand(
+        child: SlideTransition(
+          position: _upperPositionAnimation, // こいつを_CupertinoDownGestureControllerでforwadできるようにしたい
+          child: _coverSheetSecondaryTransition(
+            widget.secondaryRouteAnimation,
+            _coverSheetPrimaryTransition(
+              context,
+              widget.primaryRouteAnimation,
+              widget.linearTransition,
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: widget.child,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -755,6 +844,7 @@ class _CupertinoDownGestureController<T> {
     required this.controller,
     required this.getIsActive,
     required this.getIsCurrent,
+    required this.upperPositionAnimationController,
   }) {
     navigator.didStartUserGesture();
   }
@@ -763,11 +853,14 @@ class _CupertinoDownGestureController<T> {
   final NavigatorState navigator;
   final ValueGetter<bool> getIsActive;
   final ValueGetter<bool> getIsCurrent;
+  // final Animation<Offset> upperPositionAnimation;
+  final AnimationController upperPositionAnimationController;
 
   /// The drag gesture has changed by [delta]. The total range of the drag
   /// should be 0.0 to 1.0.
   void dragUpdate(double delta) {
     controller.value -= delta;
+    upperPositionAnimationController.forward();
   }
 
   /// The drag gesture has ended with a vertical motion of [velocity] as a
