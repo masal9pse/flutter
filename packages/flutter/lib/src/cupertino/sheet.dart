@@ -332,7 +332,11 @@ class CupertinoSheetTransition extends StatefulWidget {
   State<CupertinoSheetTransition> createState() => _CupertinoSheetTransitionState();
 }
 
-class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> {
+class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _positionAnimation;
+
   // The offset animation when this page is being covered by another sheet.
   late Animation<Offset> _secondaryPositionAnimation;
 
@@ -348,6 +352,11 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> {
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(duration: const Duration(milliseconds: 700), vsync: this);
+    // _positionAnimation = _controller.drive(_kBottomUpTween);
+    _positionAnimation = _controller.drive(
+      Tween<Offset>(begin: const Offset(0, 0), end: const Offset(0, -0.008)),
+    );
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarBrightness: Brightness.dark,
@@ -369,6 +378,7 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> {
 
   @override
   void dispose() {
+    _controller.dispose();
     _disposeCurve();
     super.dispose();
   }
@@ -435,13 +445,16 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition> {
   @override
   Widget build(BuildContext context) {
     return SizedBox.expand(
-      child: _coverSheetSecondaryTransition(
-        widget.secondaryRouteAnimation,
-        _coverSheetPrimaryTransition(
-          context,
-          widget.primaryRouteAnimation,
-          widget.linearTransition,
-          widget.child,
+      child: SlideTransition(
+        position: _positionAnimation,
+        child: _coverSheetSecondaryTransition(
+          widget.secondaryRouteAnimation,
+          _coverSheetPrimaryTransition(
+            context,
+            widget.primaryRouteAnimation,
+            widget.linearTransition,
+            widget.child,
+          ),
         ),
       ),
     );
@@ -493,6 +506,11 @@ class CupertinoSheetRoute<T> extends PageRoute<T> with _CupertinoSheetRouteTrans
   @override
   Widget buildContent(BuildContext context) {
     final double topPadding = MediaQuery.sizeOf(context).height * _kTopGapRatio;
+    // return CupertinoUserInterfaceLevel(
+    //   data: CupertinoUserInterfaceLevelData.elevated,
+    //   child: _CupertinoSheetScope(child: builder(context)),
+    // );
+
     return MediaQuery.removePadding(
       context: context,
       removeTop: true,
@@ -612,7 +630,7 @@ mixin _CupertinoSheetRouteTransitionMixin<T> on PageRoute<T> {
       child: _CupertinoDownGestureDetector<T>(
         enabledCallback: () => enableDrag,
         onStartPopGesture: () => _startPopGesture<T>(route),
-        child: child,
+      child: child,
       ),
     );
   }
@@ -684,6 +702,11 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
   }
 
   void _handleDragStart(DragStartDetails details) {
+    // final transitionState = context.findAncestorStateOfType<_CupertinoSheetTransitionState>();
+    // if (transitionState != null) {
+    //   final a = transitionState._positionAnimation;
+    //   transitionState._controller.forward();
+    // }
     assert(mounted);
     assert(_downGestureController == null);
     _downGestureController = widget.onStartPopGesture();
@@ -692,6 +715,11 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
   void _handleDragUpdate(DragUpdateDetails details) {
     assert(mounted);
     assert(_downGestureController != null);
+    final transitionState = context.findAncestorStateOfType<_CupertinoSheetTransitionState>();
+    if (transitionState != null) {
+      final a = transitionState._positionAnimation;
+      transitionState._controller.forward();
+    }
     _downGestureController!.dragUpdate(
       // Divide by size of the sheet.
       details.primaryDelta! / (context.size!.height - (context.size!.height * _kTopGapRatio)),
