@@ -352,7 +352,7 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(duration: const Duration(milliseconds: 700), vsync: this);
+    _controller = AnimationController(duration: const Duration(milliseconds: 800), vsync: this);
     // _positionAnimation = _controller.drive(_kBottomUpTween);
     _positionAnimation = _controller.drive(
       Tween<Offset>(begin: const Offset(0, 0), end: const Offset(0, -0.008)),
@@ -444,20 +444,66 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: SlideTransition(
-        position: _positionAnimation,
-        child: _coverSheetSecondaryTransition(
-          widget.secondaryRouteAnimation,
-          _coverSheetPrimaryTransition(
-            context,
-            widget.primaryRouteAnimation,
-            widget.linearTransition,
-            widget.child,
+    // なるほど、このクラスは_CupertinoDownGestureDetectorStateは上位ツリーにあたるから、このメソッドでnullになる。
+    final double topPadding = MediaQuery.sizeOf(context).height * _kTopGapRatio;
+
+    // return _AnimationControllerProvider(
+    //   controller: _controller,
+    //   child: SizedBox.expand(
+    //     // Animationをいじる。
+    //     child: Padding(
+    //       padding: EdgeInsets.only(top: topPadding),
+    //       child: _coverSheetSecondaryTransition(
+    //         widget.secondaryRouteAnimation,
+    //         _coverSheetPrimaryTransition(
+    //           context,
+    //           widget.primaryRouteAnimation,
+    //           widget.linearTransition,
+    //           widget.child,
+    //         ),
+    //       ),
+    //     ),
+    //   ),
+    // );
+
+    // final transitionState =
+    //     context.findAncestorStateOfType<_CupertinoDownGestureDetectorState<void>>();
+    return _AnimationControllerProvider(
+      controller: _controller,
+      child: SizedBox.expand(
+        child: SlideTransition(
+          position: _positionAnimation,
+          child: Padding(
+            padding: EdgeInsets.only(top: topPadding),
+            child: _coverSheetSecondaryTransition(
+              widget.secondaryRouteAnimation,
+              _coverSheetPrimaryTransition(
+                context,
+                widget.primaryRouteAnimation,
+                widget.linearTransition,
+                widget.child,
+              ),
+            ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _AnimationControllerProvider extends InheritedWidget {
+  const _AnimationControllerProvider({required this.controller, required super.child});
+
+  final AnimationController controller;
+  static _AnimationControllerProvider of(BuildContext context) {
+    final provider = context.dependOnInheritedWidgetOfExactType<_AnimationControllerProvider>();
+    assert(provider != null, 'No _AnimationControllerProvider found in context');
+    return provider!;
+  }
+
+  @override
+  bool updateShouldNotify(_AnimationControllerProvider oldWidget) {
+    return oldWidget.controller != controller;
   }
 }
 
@@ -506,6 +552,9 @@ class CupertinoSheetRoute<T> extends PageRoute<T> with _CupertinoSheetRouteTrans
   @override
   Widget buildContent(BuildContext context) {
     final double topPadding = MediaQuery.sizeOf(context).height * _kTopGapRatio;
+    // final transitionState = context.findAncestorStateOfType<_CupertinoSheetTransitionState>();
+    // このクラスは、_CupertinoDownGestureDetectorStateの下位ツリーにあたるから、値を取得できる。
+    // final transitionState = context.findAncestorStateOfType<_CupertinoDownGestureDetectorState<void>>();
     // return CupertinoUserInterfaceLevel(
     //   data: CupertinoUserInterfaceLevelData.elevated,
     //   child: _CupertinoSheetScope(child: builder(context)),
@@ -515,17 +564,30 @@ class CupertinoSheetRoute<T> extends PageRoute<T> with _CupertinoSheetRouteTrans
       context: context,
       removeTop: true,
       removeBottom: true,
-      child: Padding(
-        padding: EdgeInsets.only(top: topPadding),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          child: CupertinoUserInterfaceLevel(
-            data: CupertinoUserInterfaceLevelData.elevated,
-            child: _CupertinoSheetScope(child: builder(context)),
-          ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+        child: CupertinoUserInterfaceLevel(
+          data: CupertinoUserInterfaceLevelData.elevated,
+          child: _CupertinoSheetScope(child: builder(context)),
         ),
       ),
     );
+
+    // return MediaQuery.removePadding(
+    //   context: context,
+    //   removeTop: true,
+    //   removeBottom: true,
+    //   child: Padding(
+    //     padding: EdgeInsets.only(top: topPadding),
+    //     child: ClipRRect(
+    //       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+    //       child: CupertinoUserInterfaceLevel(
+    //         data: CupertinoUserInterfaceLevelData.elevated,
+    //         child: _CupertinoSheetScope(child: builder(context)),
+    //       ),
+    //     ),
+    //   ),
+    // );
   }
 
   /// Checks if a Cupertino sheet view exists in the widget tree above the current
@@ -630,7 +692,7 @@ mixin _CupertinoSheetRouteTransitionMixin<T> on PageRoute<T> {
       child: _CupertinoDownGestureDetector<T>(
         enabledCallback: () => enableDrag,
         onStartPopGesture: () => _startPopGesture<T>(route),
-      child: child,
+        child: child,
       ),
     );
   }
@@ -715,11 +777,13 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
   void _handleDragUpdate(DragUpdateDetails details) {
     assert(mounted);
     assert(_downGestureController != null);
-    final transitionState = context.findAncestorStateOfType<_CupertinoSheetTransitionState>();
-    if (transitionState != null) {
-      final a = transitionState._positionAnimation;
-      transitionState._controller.forward();
-    }
+    // final transitionState = context.findAncestorStateOfType<_CupertinoSheetTransitionState>();
+    // if (transitionState != null) {
+    //   final a = transitionState._positionAnimation;
+    //   transitionState._controller.forward();
+    // }
+    final provider = _AnimationControllerProvider.of(context);
+    provider.controller.forward();
     _downGestureController!.dragUpdate(
       // Divide by size of the sheet.
       details.primaryDelta! / (context.size!.height - (context.size!.height * _kTopGapRatio)),
