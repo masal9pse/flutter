@@ -352,7 +352,7 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(duration: const Duration(milliseconds: 800), vsync: this);
+    _controller = AnimationController(duration: const Duration(milliseconds: 200), vsync: this);
     // _positionAnimation = _controller.drive(_kBottomUpTween);
     _positionAnimation = _controller.drive(
       Tween<Offset>(begin: const Offset(0, 0), end: const Offset(0, -0.008)),
@@ -490,20 +490,18 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
     );
   }
 }
-
 class _AnimationControllerProvider extends InheritedWidget {
   const _AnimationControllerProvider({required this.controller, required super.child});
 
   final AnimationController controller;
-  static _AnimationControllerProvider of(BuildContext context) {
-    final provider = context.dependOnInheritedWidgetOfExactType<_AnimationControllerProvider>();
-    assert(provider != null, 'No _AnimationControllerProvider found in context');
-    return provider!;
+
+  static _AnimationControllerProvider? of(BuildContext context) {
+    return context.getInheritedWidgetOfExactType<_AnimationControllerProvider>();
   }
 
   @override
   bool updateShouldNotify(_AnimationControllerProvider oldWidget) {
-    return oldWidget.controller != controller;
+    return false;
   }
 }
 
@@ -782,8 +780,8 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
     //   final a = transitionState._positionAnimation;
     //   transitionState._controller.forward();
     // }
-    final provider = _AnimationControllerProvider.of(context);
-    provider.controller.forward();
+    final _AnimationControllerProvider? provider = _AnimationControllerProvider.of(context);
+    provider!.controller.forward();
     _downGestureController!.dragUpdate(
       // Divide by size of the sheet.
       details.primaryDelta! / (context.size!.height - (context.size!.height * _kTopGapRatio)),
