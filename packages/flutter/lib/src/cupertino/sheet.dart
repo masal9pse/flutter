@@ -335,7 +335,8 @@ class CupertinoSheetTransition extends StatefulWidget {
 class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<Offset> _positionAnimation;
+  // late Animation<Offset> _positionAnimation;
+  late Animation<double> _paddingAnimation;
 
   // The offset animation when this page is being covered by another sheet.
   late Animation<Offset> _secondaryPositionAnimation;
@@ -353,9 +354,8 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
   void initState() {
     super.initState();
     _controller = AnimationController(duration: const Duration(milliseconds: 200), vsync: this);
-    // _positionAnimation = _controller.drive(_kBottomUpTween);
-    _positionAnimation = _controller.drive(
-      Tween<Offset>(begin: const Offset(0, 0), end: const Offset(0, -0.008)),
+    _paddingAnimation = _controller.drive(
+      Tween<double>(begin: _kTopGapRatio, end: 0.072),
     );
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -444,52 +444,35 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
 
   @override
   Widget build(BuildContext context) {
-    // なるほど、このクラスは_CupertinoDownGestureDetectorStateは上位ツリーにあたるから、このメソッドでnullになる。
-    final double topPadding = MediaQuery.sizeOf(context).height * _kTopGapRatio;
+    // final double topPadding = MediaQuery.sizeOf(context).height * _kTopGapRatio;
+    // final double topPadding = MediaQuery.sizeOf(context).height * 0.072;
 
-    // return _AnimationControllerProvider(
-    //   controller: _controller,
-    //   child: SizedBox.expand(
-    //     // Animationをいじる。
-    //     child: Padding(
-    //       padding: EdgeInsets.only(top: topPadding),
-    //       child: _coverSheetSecondaryTransition(
-    //         widget.secondaryRouteAnimation,
-    //         _coverSheetPrimaryTransition(
-    //           context,
-    //           widget.primaryRouteAnimation,
-    //           widget.linearTransition,
-    //           widget.child,
-    //         ),
-    //       ),
-    //     ),
-    //   ),
-    // );
-
-    // final transitionState =
-    //     context.findAncestorStateOfType<_CupertinoDownGestureDetectorState<void>>();
     return _AnimationControllerProvider(
       controller: _controller,
       child: SizedBox.expand(
-        child: SlideTransition(
-          position: _positionAnimation,
-          child: Padding(
-            padding: EdgeInsets.only(top: topPadding),
-            child: _coverSheetSecondaryTransition(
-              widget.secondaryRouteAnimation,
-              _coverSheetPrimaryTransition(
-                context,
-                widget.primaryRouteAnimation,
-                widget.linearTransition,
-                widget.child,
+        child: AnimatedBuilder(
+          animation: _paddingAnimation,
+          builder: (context, child) {
+            return Padding(
+              // padding: EdgeInsets.only(top: topPadding * _paddingAnimation.value),
+              padding: EdgeInsets.only(top: MediaQuery.sizeOf(context).height * _paddingAnimation.value),
+              child: _coverSheetSecondaryTransition(
+                widget.secondaryRouteAnimation,
+                _coverSheetPrimaryTransition(
+                  context,
+                  widget.primaryRouteAnimation,
+                  widget.linearTransition,
+                  widget.child,
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
   }
 }
+
 class _AnimationControllerProvider extends InheritedWidget {
   const _AnimationControllerProvider({required this.controller, required super.child});
 
