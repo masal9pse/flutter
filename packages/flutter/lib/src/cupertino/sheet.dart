@@ -353,10 +353,12 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(duration: const Duration(milliseconds: 200), vsync: this);
-    _paddingAnimation = _controller.drive(
-      Tween<double>(begin: _kTopGapRatio, end: 0.072),
+    _controller = AnimationController(
+      duration: const Duration(microseconds: 1),
+      reverseDuration: const Duration(microseconds: 300),
+      vsync: this,
     );
+    _paddingAnimation = _controller.drive(Tween<double>(begin: _kTopGapRatio, end: 0.072));
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarBrightness: Brightness.dark,
@@ -455,7 +457,9 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
           builder: (context, child) {
             return Padding(
               // padding: EdgeInsets.only(top: topPadding * _paddingAnimation.value),
-              padding: EdgeInsets.only(top: MediaQuery.sizeOf(context).height * _paddingAnimation.value),
+              padding: EdgeInsets.only(
+                top: MediaQuery.sizeOf(context).height * _paddingAnimation.value,
+              ),
               child: _coverSheetSecondaryTransition(
                 widget.secondaryRouteAnimation,
                 _coverSheetPrimaryTransition(
@@ -776,6 +780,8 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
     assert(_downGestureController != null);
     _downGestureController!.dragEnd(details.velocity.pixelsPerSecond.dy / context.size!.height);
     _downGestureController = null;
+    final _AnimationControllerProvider? provider = _AnimationControllerProvider.of(context);
+    provider!.controller.reverse();
   }
 
   void _handleDragCancel() {
