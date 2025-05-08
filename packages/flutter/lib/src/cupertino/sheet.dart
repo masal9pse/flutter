@@ -355,7 +355,7 @@ class _CupertinoSheetTransitionState extends State<CupertinoSheetTransition>
     super.initState();
     _controller = AnimationController(
       duration: const Duration(microseconds: 1),
-      reverseDuration: const Duration(microseconds: 300),
+      reverseDuration: const Duration(milliseconds: 180),
       vsync: this,
     );
     _paddingAnimation = _controller.drive(Tween<double>(begin: _kTopGapRatio, end: 0.072));
@@ -657,6 +657,7 @@ mixin _CupertinoSheetRouteTransitionMixin<T> on PageRoute<T> {
       getIsCurrent: () => route.isCurrent,
       getIsActive: () => route.isActive,
       controller: route.controller!, // protected access
+      // paddingController: route.controller!,
     );
   }
 
@@ -762,33 +763,36 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
   void _handleDragUpdate(DragUpdateDetails details) {
     assert(mounted);
     assert(_downGestureController != null);
-    // final transitionState = context.findAncestorStateOfType<_CupertinoSheetTransitionState>();
-    // if (transitionState != null) {
-    //   final a = transitionState._positionAnimation;
-    //   transitionState._controller.forward();
-    // }
     final _AnimationControllerProvider? provider = _AnimationControllerProvider.of(context);
-    provider!.controller.forward();
+    // provider!.controller.forward();
     _downGestureController!.dragUpdate(
       // Divide by size of the sheet.
       details.primaryDelta! / (context.size!.height - (context.size!.height * _kTopGapRatio)),
+      // details.primaryDelta! / (context.size!.height - (context.size!.height * 0.)),
+      // details.primaryDelta! / (context.size!.height - (context.size!.height * 0.008)),
+      // details.primaryDelta! /  (context.size!.height * 0.0078),
+      details.primaryDelta! /  (context.size!.height * 0.008),
+      provider!.controller,
     );
   }
 
   void _handleDragEnd(DragEndDetails details) {
     assert(mounted);
     assert(_downGestureController != null);
-    _downGestureController!.dragEnd(details.velocity.pixelsPerSecond.dy / context.size!.height);
-    _downGestureController = null;
     final _AnimationControllerProvider? provider = _AnimationControllerProvider.of(context);
-    provider!.controller.reverse();
+    _downGestureController!.dragEnd(
+      details.velocity.pixelsPerSecond.dy / context.size!.height,
+      provider!.controller,
+    );
+    _downGestureController = null;
   }
 
   void _handleDragCancel() {
     assert(mounted);
     // This can be called even if start is not called, paired with the "down" event
     // that we don't consider here.
-    _downGestureController?.dragEnd(0.0);
+    final _AnimationControllerProvider? provider = _AnimationControllerProvider.of(context);
+    _downGestureController?.dragEnd(0.0, provider!.controller);
     _downGestureController = null;
   }
 
@@ -815,24 +819,49 @@ class _CupertinoDownGestureController<T> {
     required this.controller,
     required this.getIsActive,
     required this.getIsCurrent,
+    // required this.paddingController,
   }) {
     navigator.didStartUserGesture();
   }
 
   final AnimationController controller;
+  // final AnimationController paddingController;
   final NavigatorState navigator;
   final ValueGetter<bool> getIsActive;
   final ValueGetter<bool> getIsCurrent;
 
   /// The drag gesture has changed by [delta]. The total range of the drag
   /// should be 0.0 to 1.0.
-  void dragUpdate(double delta) {
-    controller.value -= delta;
+  void dragUpdate(double delta, double paddingDelta, AnimationController paddingController) {
+    // print(
+    //   'dragUpdate: $delta,controller.value: ${controller.value},paddingDelta: $paddingDelta,paddingController.value: ${paddingController.value}',
+    // );
+    // print(
+    //   'paddingDelta: $paddingDelta,paddingController.value: ${paddingController.value}',
+    // );
+    if (controller.value == 1.0 && delta < 0) {
+      // 上に移動するアニメーションを書いてあとは微調整で頑張る。
+      // paddingController.value -= delta;
+      // paddingController.forward();
+      // paddingController.value -= paddingDelta;
+      // controller.value = (controller.value - delta).clamp(0.072, 0.08);
+      // const maxDragHeight = 200.0;
+      // const maxStretch = 0.008;
+
+      // final dragY = -delta;
+      // final ratio = (dragY / maxDragHeight).clamp(0.0, 1.0);
+      // final curvedRatio = Curves.easeOut.transform(ratio);
+      // paddingController.value = 0.008 - curvedRatio * maxStretch;
+      // paddingController.value = 1.0;
+      paddingController.value -= paddingDelta;
+    } else {
+      controller.value -= delta;
+    }
   }
 
   /// The drag gesture has ended with a vertical motion of [velocity] as a
   /// fraction of screen height per second.
-  void dragEnd(double velocity) {
+  void dragEnd(double velocity, AnimationController paddingController) {
     // Fling in the appropriate direction.
     //
     // This curve has been determined through rigorously eyeballing native iOS
@@ -840,6 +869,7 @@ class _CupertinoDownGestureController<T> {
     const Curve animationCurve = Curves.easeOut;
     final bool isCurrent = getIsCurrent();
     final bool animateForward;
+    paddingController.reverse();
 
     if (!isCurrent) {
       // If the page has already been navigated away from, then the animation
