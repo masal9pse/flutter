@@ -536,15 +536,6 @@ class CupertinoSheetRoute<T> extends PageRoute<T> with _CupertinoSheetRouteTrans
 
   @override
   Widget buildContent(BuildContext context) {
-    final double topPadding = MediaQuery.sizeOf(context).height * _kTopGapRatio;
-    // final transitionState = context.findAncestorStateOfType<_CupertinoSheetTransitionState>();
-    // このクラスは、_CupertinoDownGestureDetectorStateの下位ツリーにあたるから、値を取得できる。
-    // final transitionState = context.findAncestorStateOfType<_CupertinoDownGestureDetectorState<void>>();
-    // return CupertinoUserInterfaceLevel(
-    //   data: CupertinoUserInterfaceLevelData.elevated,
-    //   child: _CupertinoSheetScope(child: builder(context)),
-    // );
-
     return MediaQuery.removePadding(
       context: context,
       removeTop: true,
@@ -557,22 +548,6 @@ class CupertinoSheetRoute<T> extends PageRoute<T> with _CupertinoSheetRouteTrans
         ),
       ),
     );
-
-    // return MediaQuery.removePadding(
-    //   context: context,
-    //   removeTop: true,
-    //   removeBottom: true,
-    //   child: Padding(
-    //     padding: EdgeInsets.only(top: topPadding),
-    //     child: ClipRRect(
-    //       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-    //       child: CupertinoUserInterfaceLevel(
-    //         data: CupertinoUserInterfaceLevelData.elevated,
-    //         child: _CupertinoSheetScope(child: builder(context)),
-    //       ),
-    //     ),
-    //   ),
-    // );
   }
 
   /// Checks if a Cupertino sheet view exists in the widget tree above the current
@@ -750,11 +725,6 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
   }
 
   void _handleDragStart(DragStartDetails details) {
-    // final transitionState = context.findAncestorStateOfType<_CupertinoSheetTransitionState>();
-    // if (transitionState != null) {
-    //   final a = transitionState._positionAnimation;
-    //   transitionState._controller.forward();
-    // }
     assert(mounted);
     assert(_downGestureController == null);
     _downGestureController = widget.onStartPopGesture();
@@ -764,14 +734,10 @@ class _CupertinoDownGestureDetectorState<T> extends State<_CupertinoDownGestureD
     assert(mounted);
     assert(_downGestureController != null);
     final _AnimationControllerProvider? provider = _AnimationControllerProvider.of(context);
-    // provider!.controller.forward();
     _downGestureController!.dragUpdate(
       // Divide by size of the sheet.
       details.primaryDelta! / (context.size!.height - (context.size!.height * _kTopGapRatio)),
-      // details.primaryDelta! / (context.size!.height - (context.size!.height * 0.)),
-      // details.primaryDelta! / (context.size!.height - (context.size!.height * 0.008)),
-      // details.primaryDelta! /  (context.size!.height * 0.0078),
-      details.primaryDelta! /  (context.size!.height * 0.008),
+      details.primaryDelta! / (context.size!.height * 0.008),
       provider!.controller,
     );
   }
@@ -819,13 +785,11 @@ class _CupertinoDownGestureController<T> {
     required this.controller,
     required this.getIsActive,
     required this.getIsCurrent,
-    // required this.paddingController,
   }) {
     navigator.didStartUserGesture();
   }
 
   final AnimationController controller;
-  // final AnimationController paddingController;
   final NavigatorState navigator;
   final ValueGetter<bool> getIsActive;
   final ValueGetter<bool> getIsCurrent;
@@ -833,26 +797,7 @@ class _CupertinoDownGestureController<T> {
   /// The drag gesture has changed by [delta]. The total range of the drag
   /// should be 0.0 to 1.0.
   void dragUpdate(double delta, double paddingDelta, AnimationController paddingController) {
-    // print(
-    //   'dragUpdate: $delta,controller.value: ${controller.value},paddingDelta: $paddingDelta,paddingController.value: ${paddingController.value}',
-    // );
-    // print(
-    //   'paddingDelta: $paddingDelta,paddingController.value: ${paddingController.value}',
-    // );
     if (controller.value == 1.0 && delta < 0) {
-      // 上に移動するアニメーションを書いてあとは微調整で頑張る。
-      // paddingController.value -= delta;
-      // paddingController.forward();
-      // paddingController.value -= paddingDelta;
-      // controller.value = (controller.value - delta).clamp(0.072, 0.08);
-      // const maxDragHeight = 200.0;
-      // const maxStretch = 0.008;
-
-      // final dragY = -delta;
-      // final ratio = (dragY / maxDragHeight).clamp(0.0, 1.0);
-      // final curvedRatio = Curves.easeOut.transform(ratio);
-      // paddingController.value = 0.008 - curvedRatio * maxStretch;
-      // paddingController.value = 1.0;
       paddingController.value -= paddingDelta;
     } else {
       controller.value -= delta;
